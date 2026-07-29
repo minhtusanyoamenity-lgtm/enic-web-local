@@ -90,13 +90,13 @@ export async function POST(request: Request) {
       const lockKey = `lock_invoice_${invoiceId}_${targetSheet}`;
       await MemoryLock.waitLock(lockKey, 10000);
       try {
-        await clearSheetData(accessToken, invoiceId, [`${targetSheet}!B2:B5`, `${targetSheet}!B10:B11`, `${targetSheet}!C6:D100`]);
+        await clearSheetData(accessToken, invoiceId, [`${targetSheet}!B2:B5`, `${targetSheet}!B10:B11`, `${targetSheet}!C2:D100`]);
         await updateSheetData(accessToken, invoiceId, `${targetSheet}!B2:B5`, [[info.cusName || ""], [info.phone || ""], [info.address || ""], [info.discount || ""]]);
         await updateSheetData(accessToken, invoiceId, `${targetSheet}!B10:B11`, [[info.saleName || ""], [info.note || ""]]);
         
         if (productsToSave.length > 0) {
           let cdData = productsToSave.map(x => [x.name, x.qty]);
-          await updateSheetData(accessToken, invoiceId, `${targetSheet}!C6:D${5 + cdData.length}`, cdData);
+          await updateSheetData(accessToken, invoiceId, `${targetSheet}!C2:D${1 + cdData.length}`, cdData);
         }
       } finally {
         MemoryLock.releaseLock(lockKey);

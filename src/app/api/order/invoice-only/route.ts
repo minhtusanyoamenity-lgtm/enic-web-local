@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     let maHD = "";
     
     try {
-      await clearSheetData(accessToken, invoiceId, [`${targetSheet}!B2:B9`, `${targetSheet}!B10:B11`, `${targetSheet}!C6:D100`]);
+      await clearSheetData(accessToken, invoiceId, [`${targetSheet}!B2:B9`, `${targetSheet}!B10:B11`, `${targetSheet}!C2:D100`]);
       await updateSheetData(accessToken, invoiceId, `${targetSheet}!B2:B9`, [
         [info.cusName || ""],
         [info.phone || ""],
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       
       if (manualProducts.length > 0) {
         let cdData = manualProducts.map((x: any) => [x.name, x.qty]);
-        await updateSheetData(accessToken, invoiceId, `${targetSheet}!C6:D${5 + cdData.length}`, cdData);
+        await updateSheetData(accessToken, invoiceId, `${targetSheet}!C2:D${1 + cdData.length}`, cdData);
       }
       
       for (let loop = 0; loop < 4; loop++) {
