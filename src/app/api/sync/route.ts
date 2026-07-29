@@ -13,6 +13,9 @@ export async function POST(request: Request) {
     if (!session || !session.user?.email || !session.accessToken) {
       return NextResponse.json({ success: false, error: 'Unauthorized or missing Google Sheets access' }, { status: 401 });
     }
+    if (session.error === "RefreshAccessTokenError") {
+      return NextResponse.json({ success: false, error: 'RefreshAccessTokenError' }, { status: 401 });
+    }
 
     const accessToken = session.accessToken;
     const currentUserEmail = session.user.email.toLowerCase();
