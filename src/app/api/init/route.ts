@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSheetData } from '@/lib/google-sheets';
 import { kv } from '@/lib/cache';
+import { performGlobalSync } from '@/lib/syncLogic';
 
 export async function GET(request: Request) {
   try {
@@ -14,15 +15,23 @@ export async function GET(request: Request) {
     const email = session.user.email.toLowerCase();
     const accessToken = session.accessToken;
     
-    const mailDataStr = await kv.get<string>('rbac_mailData');
-    const linkDataStr = await kv.get<string>('rbac_linkData');
+    let mailDataStr = await kv.get<string>('rbac_mailData');
+    let linkDataStr = await kv.get<string>('rbac_linkData');
+    
+    // Auto-sync if cache is completely empty (cold start)
+    if (!mailDataStr || !linkDataStr) {
+      const syncResult = await performGlobalSync(accessToken);
+      mailDataStr = JSON.stringify(syncResult.mailData);
+      linkDataStr = JSON.stringify(syncResult.linkData);
+    }
+
     const globalSyncTime = await kv.get<string>('globalSyncTime') || "0";
 
     const mailData = mailDataStr ? JSON.parse(mailDataStr) : {};
     const linkData = linkDataStr ? JSON.parse(linkDataStr) : {};
 
     const userName = mailData[email];
-    if (!userName) throw new Error(`⛔ Email [${email}] không có quyền vào Web!`);
+    if (!userName) throw new Error(`⛔ Email [${email}] không có quyền vào Web! Vui lòng liên hệ Admin.`);
     
     const userLinks = linkData[userName];
     if (!userLinks) throw new Error(`⛔ LỖI CẤU HÌNH: User [${userName}] chưa được gán Link!`);
