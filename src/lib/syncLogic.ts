@@ -98,5 +98,12 @@ export async function performGlobalSync(accessToken: string) {
   const syncTime = new Date().getTime();
   await kv.set('globalSyncTime', syncTime.toString());
 
-  return { mailData, linkData };
+  return {
+    mailData,
+    linkData,
+    adminList,
+    bdConfigData,
+    caiDatData,
+    lenDonData
+  };
 }
