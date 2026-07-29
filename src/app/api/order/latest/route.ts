@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       const saleName = await getSheetData(accessToken, invoiceId, `${requestedName}!B10:B10`);
       const note = await getSheetData(accessToken, invoiceId, `${requestedName}!B11:B11`);
       
-      const spData = await getSheetData(accessToken, invoiceId, `${requestedName}!C2:D100`);
+      const spData = await getSheetData(accessToken, invoiceId, `${requestedName}!C6:D100`);
       
       const products: any[] = [];
       if (spData && spData.length > 0) {
