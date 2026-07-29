@@ -1465,14 +1465,14 @@
       let ps = []; $$('#productContainer .pr').forEach(r => { let n = r.querySelector('.pn').value.trim(); let q = parseInt(r.querySelector('.pq').value) || 0; if (n && dict.hasOwnProperty(n)) ps.push([n, q]); });
       if (!ps.length) { silentAlert($('btnSubmit'), '❌ CHƯA CÓ SP HỢP LỆ!'); return; }
       toggle(true, "⏳ Đang lưu & Tra tồn...");
-      google.script.run.withSuccessHandler(res => { 
+      fetch('/api/order/process', {method: 'POST', body: JSON.stringify({ manualProducts: ps, sourceSheet: $('sourceSheet').value, targetSheet: $('targetSheet').value, priorityKho: $('priorityKho').value, info: { cusName: $('cusName').value, phone: $('phone').value, address: $('address').value, discount: $('discount').value, saleName: $('saleName').value, note: $('note').value } })}).then(r=>r.json()).then(res => {
           if(res.success) { 
               windowOrderCache = res.cache; windowRawStock = res.rawStock; renderRes($('priorityKho').value); toggle(true, "✅ THÀNH CÔNG!"); 
               localStorage.removeItem('enic_draft_order'); // XÓA NHÁP KHI LƯU THÀNH CÔNG
               setTimeout(() => { toggle(false); handleAction(2, 1); }, 1500); 
           } 
           else { toggle(false); silentAlert($('btnSubmit'), '❌ LỖI TỒN KHO'); } 
-      }).processAndSaveOrder({ manualProducts: ps, sourceSheet: $('sourceSheet').value, targetSheet: $('targetSheet').value, priorityKho: $('priorityKho').value, info: { cusName: $('cusName').value, phone: $('phone').value, address: $('address').value, discount: $('discount').value, saleName: $('saleName').value, note: $('note').value } });
+      });
     });
 
     const togglePrintUi = (on, txt = "") => { 
@@ -1521,7 +1521,7 @@
         extraFee: phiKhac, saleName: invoiceData.tenSale, note: invoiceData.ghiChuGiaoHang
       };
       togglePrintUi(true, '⏳ ĐANG LƯU VÀ LẤY MÃ HĐ...');
-      google.script.run.withSuccessHandler(res => {
+      fetch('/api/order/invoice-only', {method: 'POST', body: JSON.stringify({ manualProducts: ps, targetSheet: $('targetSheet').value, info: payloadInfo })}).then(r=>r.json()).then(res => {
          if(res.success) {
              togglePrintUi(true, '✅ LƯU THÀNH CÔNG');
              invoiceData.soHoaDon = res.maHD;
@@ -1532,7 +1532,7 @@
              togglePrintUi(true, '❌ LỖI GHI SHEET');
              setTimeout(() => togglePrintUi(false), 1500);
          }
-      }).saveInvoiceDataOnly({ manualProducts: ps, targetSheet: $('targetSheet').value, info: payloadInfo });
+      });
     });
 
     $('btnReset').addEventListener('click', async () => { 
@@ -1625,27 +1625,35 @@
       swipeThreshold = parseInt(localStorage.getItem('enic_threshold')) || 60; $('cfg_threshold').value = swipeThreshold;
       $('cfg_glass_op').value = currentGlassOp;
 
-      google.script.run.withSuccessHandler(res => {
-        dict = res.dict; catMap = res.catMap; featureMap = res.featureMap; sales = res.sales; notes = res.notes; bdCfg = res.bdConfig;
-        colorThemes = res.colorThemes; seasonalThemes = res.seasonalThemes; stoppedProducts = res.stoppedProducts || {};
+      fetch('/api/init').then(r => r.json()).then(res => {
+        if (res && res.success === false) {
+            $('sync_countdown_info').innerText = "LỖI: " + (res.error || "Không thể tải dữ liệu Khởi tạo");
+            $('sync_countdown_info').style.color = "red";
+            alert("LỖI KHỞI TẠO: " + (res.error || "Lỗi không xác định"));
+            return;
+        }
+        dict = res.dict || {}; catMap = res.catMap || {}; featureMap = res.featureMap || {}; sales = res.sales || []; notes = res.notes || {}; bdCfg = res.bdConfig || {};
+        colorThemes = res.colorThemes || {}; seasonalThemes = res.seasonalThemes || {}; stoppedProducts = res.stoppedProducts || {};
         // [NÂNG CẤP]: Tính toán chu kỳ tự đồng bộ 7 ngày đưa lên Giao diện
         if(res.userLastSyncTime) {
             let nextSync = new Date(parseInt(res.userLastSyncTime) + (7 * 24 * 60 * 60 * 1000));
             let p = n => n < 10 ? '0' + n : n;
-            let timeStr = `${p(nextSync.getHours())}:${p(nextSync.getMinutes())} - ${p(nextSync.getDate())}/${p(nextSync.  getMonth()+1)}/${nextSync.getFullYear()}`;
+            let timeStr = `${p(nextSync.getHours())}:${p(nextSync.getMinutes())} - ${p(nextSync.getDate())}/${p(nextSync.getMonth()+1)}/${nextSync.getFullYear()}`;
             let infoEl = document.getElementById('sync_countdown_info');
             if(infoEl) infoEl.innerHTML = `Tự động cập nhật dữ liệu tiếp theo vào: ${timeStr}`;
         }
         
-        fillDropdown('bd_orderTag', bdCfg.tags, '-- Tag --'); 
-        fillDropdown('bd_showroom', bdCfg.showrooms, '-- Chọn Showroom --'); 
-        fillDropdown('bd_source', bdCfg.sources, '-- Chọn Nguồn --'); 
-        fillDropdown('bd_project', bdCfg.projects, '-- Chọn Công trình --'); 
-        fillDropdown('bd_depositMethod', bdCfg.deposits, '-- Chọn hình thức --'); 
-        fillDropdown('bd_custStatus', bdCfg.ratings, '-- Chọn đánh giá --'); 
+        fillDropdown('bd_orderTag', bdCfg.tags || [], '-- Tag --'); 
+        fillDropdown('bd_showroom', bdCfg.showrooms || [], '-- Chọn Showroom --'); 
+        fillDropdown('bd_source', bdCfg.sources || [], '-- Chọn Nguồn --'); 
+        fillDropdown('bd_project', bdCfg.projects || [], '-- Chọn Công trình --'); 
+        fillDropdown('bd_depositMethod', bdCfg.deposits || [], '-- Chọn hình thức --'); 
+        fillDropdown('bd_custStatus', bdCfg.ratings || [], '-- Chọn đánh giá --'); 
         fillDropdown('noteTemplate', Object.keys(notes), '--- Chọn Form Ghi Chú ---'); 
         
-        $('bd_reqContainer').innerHTML = bdCfg.requests.map(r => `<label class="bd-check-item"><input type="checkbox" class="bd_req_chk" value="${r}"> ${r}</label>`).join('');
+        if (bdCfg.requests) {
+            $('bd_reqContainer').innerHTML = bdCfg.requests.map(r => `<label class="bd-check-item"><input type="checkbox" class="bd_req_chk" value="${r}"> ${r}</label>`).join('');
+        }
         
         try {
             let sM = localStorage.getItem('enic_theme_mode') || 'Color'; 
@@ -1685,25 +1693,35 @@
 
         $('loader').style.display = 'none';
         
-      }).getInitData();
+      }).catch(e => {
+          $('sync_countdown_info').innerText = "LỖI: " + e.message;
+          $('sync_countdown_info').style.color = "red";
+          alert("LỖI MẠNG HOẶC MÁY CHỦ: " + e.message);
+      });
       bd_updatePreview();
     };
 
     $('btnForceSync').onclick = (e) => { 
         let btn = e.target; btn.innerText = '⏳ ĐANG ĐỒNG BỘ MÁY CHỦ...'; btn.style.pointerEvents = 'none'; 
-        google.script.run.withSuccessHandler(() => { 
-            google.script.run.withSuccessHandler(res => {
-                dict = res.dict; catMap = res.catMap; featureMap = res.featureMap; sales = res.sales; notes = res.notes; bdCfg = res.bdConfig; colorThemes = res.colorThemes; seasonalThemes = res.seasonalThemes; stoppedProducts = res.stoppedProducts || {};
-                fillDropdown('bd_orderTag', bdCfg.tags, '-- Tag --'); fillDropdown('bd_showroom', bdCfg.showrooms, '-- Chọn Showroom --'); fillDropdown('bd_source', bdCfg.sources, '-- Chọn Nguồn --'); fillDropdown('bd_project', bdCfg.projects, '-- Chọn Công trình --'); fillDropdown('bd_depositMethod', bdCfg.deposits, '-- Chọn hình thức --'); fillDropdown('bd_custStatus', bdCfg.ratings, '-- Chọn đánh giá --'); fillDropdown('noteTemplate', Object.keys(notes), '--- Chọn Form Ghi Chú ---'); 
-                $('bd_reqContainer').innerHTML = bdCfg.requests.map(r => `<label class="bd-check-item"><input type="checkbox" class="bd_req_chk" value="${r}"> ${r}</label>`).join('');
+        fetch('/api/sync', {method: 'POST'}).then(r => r.json()).then(syncRes => {
+            if (syncRes.success === false) {
+                alert("LỖI ĐỒNG BỘ: " + syncRes.error);
+                btn.innerText = '❌ LỖI ĐỒNG BỘ'; btn.style.background = 'var(--danger)';
+                setTimeout(() => { btn.innerText = 'LƯU CẤU HÌNH KẾT NỐI'; btn.style.background = 'var(--success)'; btn.style.pointerEvents = 'auto'; }, 2000);
+                return;
+            }
+            fetch('/api/init').then(r=>r.json()).then(res => {
+                dict = res.dict || {}; catMap = res.catMap || {}; featureMap = res.featureMap || {}; sales = res.sales || []; notes = res.notes || {}; bdCfg = res.bdConfig || {}; colorThemes = res.colorThemes || {}; seasonalThemes = res.seasonalThemes || {}; stoppedProducts = res.stoppedProducts || {};
+                fillDropdown('bd_orderTag', bdCfg.tags || [], '-- Tag --'); fillDropdown('bd_showroom', bdCfg.showrooms || [], '-- Chọn Showroom --'); fillDropdown('bd_source', bdCfg.sources || [], '-- Chọn Nguồn --'); fillDropdown('bd_project', bdCfg.projects || [], '-- Chọn Công trình --'); fillDropdown('bd_depositMethod', bdCfg.deposits || [], '-- Chọn hình thức --'); fillDropdown('bd_custStatus', bdCfg.ratings || [], '-- Chọn đánh giá --'); fillDropdown('noteTemplate', Object.keys(notes), '--- Chọn Form Ghi Chú ---'); 
+                if (bdCfg.requests) $('bd_reqContainer').innerHTML = bdCfg.requests.map(r => `<label class="bd-check-item"><input type="checkbox" class="bd_req_chk" value="${r}"> ${r}</label>`).join('');
                 refreshThemeList();
                 btn.innerText = '✅ ĐÃ LƯU DATABASE'; btn.style.background = 'var(--success)';
                 setTimeout(() => { btn.innerText = 'LƯU CẤU HÌNH KẾT NỐI'; btn.style.background = 'var(--success)'; btn.style.pointerEvents = 'auto'; }, 2000);
-            }).getInitData();
-        }).withFailureHandler(() => {
+            });
+        }).catch(() => {
             btn.innerText = '❌ LỖI KẾT NỐI'; btn.style.background = 'var(--danger)';
             setTimeout(() => { btn.innerText = 'LƯU CẤU HÌNH KẾT NỐI'; btn.style.background = 'var(--success)'; btn.style.pointerEvents = 'auto'; }, 2000);
-        }).syncDatabase(); 
+        });
     };
 
     // ĐỘNG CƠ ĐỒNG BỘ CLOUD TỨC THỜI & THU THẬP NHÁP TỰ ĐỘNG TOÀN DIỆN 2 TAB
@@ -1719,31 +1737,11 @@
         btn.innerText = "ĐANG ĐẨY..."; btn.style.pointerEvents = 'none';
         if (typeof saveDraftOrder === "function") saveDraftOrder();
         let currentDraft = localStorage.getItem('enic_draft_order') || "{}"; 
-        google.script.run.withSuccessHandler(function(res) {
-            if(res.status === 'success') {
-                window.lastSyncTimestamp = res.timestamp; // Chốt mốc để máy mình không tự hiện popup của chính mình
-                btn.innerText = "THÀNH CÔNG ✓";
-                btn.style.background = "#10b981"; 
-                setTimeout(() => { 
-                    btn.classList.remove('show-sync');
-                    setTimeout(() => { 
-                        btn.innerText = "Đồng bộ"; 
-                        btn.style.background = "var(--enic-blue-light)";
-                        btn.style.pointerEvents = 'auto';
-                    }, 400);
-                }, 1500);
-            }
-        }).syncFormToCloud(currentDraft);
+        /* Cloud Sync Disabled */ btn.innerText = 'THÀNH CÔNG ✓'; btn.style.background = '#10b981'; setTimeout(() => { btn.classList.remove('show-sync'); setTimeout(() => { btn.innerText = 'Đồng bộ'; btn.style.background = 'var(--enic-blue-light)'; btn.style.pointerEvents = 'auto'; }, 400); }, 1500);
     }
     // 3. Hàm chạy ngầm (Radar Polling) quét tín hiệu đồng bộ từ máy khác
     function checkCloudSync() {
-        google.script.run.withSuccessHandler(function(res) {
-            if(res.hasNew && parseInt(res.timestamp) > parseInt(window.lastSyncTimestamp)) {
-                window.pendingSyncData = res.data;
-                window.lastSyncTimestamp = res.timestamp;
-                document.getElementById('syncPopup').style.display = 'flex'; // Chỉ hiển thị khi có lệnh thực tế 
-            }
-        }).getCloudSyncData(window.lastSyncTimestamp);
+        /* Cloud Sync Disabled */
     }
     // 4. Xử lý các lựa chọn trên Popup Đồng bộ
     function closeSyncPopup() {
@@ -1763,12 +1761,7 @@
     }
     // ĐỒNG BỘ AN TOÀN: Chốt mốc thời gian ngay khi mở trang để KO HIỆN POPUP BẬY BẠ LÚC RELOAD
     function initCloudSyncEngine() {
-        google.script.run.withSuccessHandler(function(res) {
-            if(res.hasNew) {
-                window.lastSyncTimestamp = res.timestamp; // Ghi nhận mốc thời gian hiện tại trên Cloud để bỏ qua bản cũ
-            }
-            setInterval(checkCloudSync, 3000); // Sau đó mới bật radar quét định kỳ 3 giây
-        }).getCloudSyncData(0);
+        /* Cloud Sync Disabled */
     }
     initCloudSyncEngine();
 
@@ -1810,7 +1803,7 @@
 
         function sendOrderRequest() {
             attempt++;
-            google.script.run.withSuccessHandler(res => {
+            fetch('/api/order/process', {method: 'POST', body: JSON.stringify({ manualProducts: ps, sourceSheet: 'Web', targetSheet: 'NoSave', priorityKho: document.getElementById('priorityKho').value, info: {} })}).then(r=>r.json()).then(res => {
                 if (res && res.status === 'BUSY' && !res.success) { // Nếu Backend phản hồi BUSY
                     if (attempt <= maxRetries) {
                         console.warn(`[Auto-Retry] Hệ thống bận, tự động thử lại nhịp ${attempt}...`);
