@@ -52,7 +52,9 @@ export async function POST(request: Request) {
       
       for (let loop = 0; loop < 4; loop++) {
         await new Promise(res => setTimeout(res, 500));
-        const checkSheets = ["hoadon1", "hoadon2"];
+        const targetSheetNumMatch = targetSheet.match(/\d+/);
+        const targetNum = targetSheetNumMatch ? targetSheetNumMatch[0] : "1";
+        const checkSheets = [`hoadon${targetNum}`];
         for (let sName of checkSheets) {
           try {
             let dataRange = await getSheetData(accessToken, invoiceId, `${sName}!H1:I12`);

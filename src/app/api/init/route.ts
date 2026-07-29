@@ -57,45 +57,55 @@ export async function GET(request: Request) {
 
     if (!invData.sales || globalSyncTime > userLastSync || (currentTime - parseInt(userLastSync)) > EXPIRE_PERIOD) {
       try {
-        let pData = [];
-        try {
-          pData = await getSheetData(accessToken, invId, 'option giá 2!A1:Z');
-        } catch(e) {
-          pData = await getSheetData(accessToken, invId, 'option giá 1!A1:Z');
-        }
-        
-        if (!pData || pData.length === 0) {
-          throw new Error("Không tìm thấy dữ liệu option giá");
-        }
-
         let sales: string[] = [], dict: any = {}, catMap: any = {}, featureMap: any = {};
+        let foundAny = false;
         
-        try {
-            const data2 = await getSheetData(accessToken, invId, 'Data2!B10:B20');
-            sales = data2.map((row: any[]) => String(row[0]).trim()).filter(v => v !== "");
-        } catch(e) {}
+        for (let idx = 1; idx <= 5; idx++) {
+          try {
+            const pData = await getSheetData(accessToken, invId, `option giá ${idx}!A1:Z`);
+            if (pData && pData.length > 0) {
+              foundAny = true;
+              for(let i = 1; i < pData.length; i++) {
+                let n = String(pData[i][0] || '').trim();
+                let p = Number(pData[i][1]) || 0;
+                let c = String(pData[i][3] || '').trim();
+                if(n) {
+                  dict[n] = p;
+                  catMap[n] = c;
+                }
+              }
 
-        for(let i = 1; i < pData.length; i++) {
-          let n = String(pData[i][0] || '').trim();
-          let p = Number(pData[i][1]) || 0;
-          let c = String(pData[i][3] || '').trim();
-          if(n) {
-            dict[n] = p;
-            catMap[n] = c;
-          }
-        }
-
-        const headers = pData[0];
-        for (let col = 9; col <= 22; col++) {
-          let catName = String(headers[col] || '').trim();
-          if (catName) {
-            let qs = [];
-            for (let row = 1; row < pData.length; row++) {
-              let featureText = String(pData[row][col] || '').trim();
-              if (featureText) qs.push(featureText);
+              const headers = pData[0];
+              for (let col = 9; col <= 22; col++) {
+                let catName = String(headers[col] || '').trim();
+                if (catName) {
+                  if (!featureMap[catName]) featureMap[catName] = [];
+                  for (let row = 1; row < pData.length; row++) {
+                    let featureText = String(pData[row][col] || '').trim();
+                    if (featureText && !featureMap[catName].includes(featureText)) {
+                       featureMap[catName].push(featureText);
+                    }
+                  }
+                }
+              }
             }
-            featureMap[catName] = qs;
-          }
+          } catch(e) {}
+          
+          try {
+            const dataX = await getSheetData(accessToken, invId, `Data ${idx}!B10:B20`);
+            const sList = dataX.map((row: any[]) => String(row[0]).trim()).filter(v => v !== "");
+            sList.forEach(s => { if (!sales.includes(s)) sales.push(s); });
+          } catch(e) {}
+          
+          try {
+            const dataXNoSpace = await getSheetData(accessToken, invId, `Data${idx}!B10:B20`);
+            const sList = dataXNoSpace.map((row: any[]) => String(row[0]).trim()).filter(v => v !== "");
+            sList.forEach(s => { if (!sales.includes(s)) sales.push(s); });
+          } catch(e) {}
+        }
+        
+        if (!foundAny) {
+          throw new Error("Không tìm thấy dữ liệu option giá");
         }
 
         invData = { sales, dict, catMap, featureMap };
