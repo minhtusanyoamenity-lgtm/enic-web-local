@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Providers } from '@/components/Providers';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,9 +17,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       </head>
       <body>
-        <Providers>
-          {children}
-        </Providers>
+        {children}
       </body>
     </html>
   );
