@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     const email = session.user.email.toLowerCase();
     const accessToken = session.accessToken;
     const payload = await request.json();
-    const { manualProducts, targetSheet, info } = payload;
+    const { manualProducts, info } = payload;
+    const targetSheet = payload.targetSheet ? payload.targetSheet.replace(/\s+/g, '') : '';
     
     if (targetSheet === "NoSave") {
         return NextResponse.json({ success: true, maHD: "HD-" + new Date().getTime().toString().slice(-6) });

@@ -69,7 +69,9 @@ export async function POST(request: Request) {
     const email = session.user.email.toLowerCase();
     const accessToken = session.accessToken;
     const payload = await request.json();
-    const { manualProducts, sourceSheet, targetSheet, priorityKho, info } = payload;
+    const { manualProducts, priorityKho, info } = payload;
+    const sourceSheet = payload.sourceSheet ? payload.sourceSheet.replace(/\s+/g, '') : '';
+    const targetSheet = payload.targetSheet ? payload.targetSheet.replace(/\s+/g, '') : '';
     
     const invoiceId = await kv.get<string>(`user_${email}_invoiceId`);
     const inventoryId = await kv.get<string>(`user_${email}_inventoryId`);

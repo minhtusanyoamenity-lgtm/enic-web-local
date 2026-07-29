@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     const email = session.user.email.toLowerCase();
     const accessToken = session.accessToken;
     const payload = await request.json();
-    const { requestedName } = payload;
+    const requestedNameRaw = typeof payload === 'string' ? payload : (payload.requestedName || payload.source);
+    const requestedName = requestedNameRaw ? requestedNameRaw.replace(/\s+/g, '') : '';
 
     const invoiceId = await kv.get<string>(`user_${email}_invoiceId`);
     if (!invoiceId) throw new Error("⛔ Chưa có ID Hóa đơn. Vui lòng F5 tải lại Web.");
